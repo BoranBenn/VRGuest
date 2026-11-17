@@ -81,7 +81,7 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 | A5 suikast yükseklik sınırı | `BP_XRPawn.A5MinHeightAboveHead` (cm, <0 = sınırsız) | -1 (sınırsız) |
 | A6 yavaşlama zayıflaması | `BP_XRPawn.A6SlowmoMaxDuration` (gerçek sn, 0 = sınırsız) | 0 |
 | A8 palet ağırlığı | `BP_Wood.ThrowSpeedMultiplier` | 1.0 |
-| A9 kilitliyken grip bırakma | `BP_XRPawn.A9KeepInHandWhenLocked` (false → hızsız düşer, state 3 olur) | true |
+| A9 kilitliyken grip bırakma | **KARAR (2026-11-17, kullanıcı): kilit kalkınca otomatik fırlatılır.** Bırakma anındaki hız `PendingThrowVel{Right,Left}`'e kaydedilir; Tick'teki `UpdatePendingThrow` önceki tahta durgunlaşınca/kırılınca `FirePendingThrow` ile atar. Tekrar grip'e basmak bekleyen atışı iptal eder (`ClearPendingThrow`). `A9KeepInHandWhenLocked` true kalmalı (false → eski "hızsız düşer" davranışı). | true |
 
 ## Parametre eşlemesi (§10 → Blueprint)
 
@@ -107,6 +107,9 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 - Kendi fonksiyonlarına parametreyi `:Param değer` keyword'üyle ver; yeni parametre ekledikten sonra önce derle. **Pozisyonel literal (`(CallFunction|X true)`) sessizce self pinine gidip kayboluyor** — `get_node_infos` ile doğrula.
 - Dizi `Get` çıktıları tipsiz kalıyor; aritmetikte `Math|Float|Max(Float)` gibi tipli bir düğümden geçir.
 - `Utilities|IsValid` her zaman makro (exec) sürümünü oluşturur; `(:"Is Valid" ...)` dallarıyla kullan.
+- `BP_XRPawn`/`BP_Wood` grafiklerinde eski DSL yazımlarından kalmış **bağlantısız kopya zincirler** var (ör. EventGraph'ta 3 `UpdateSlowmo`). `find_nodes` hepsini döndürür; düğüm eklerken olaydan/fonksiyon girişinden gerçekten ulaşılan zinciri seç, sonra `read_graph_dsl` ile doğrula.
+- `read_graph_dsl` çıktısı her zaman geri yazılamıyor (`|SetbX`, `Math|Vector|vector*vector` "does not exist"). Var olan fonksiyona ekleme yaparken `create_node` + `break_pins`/`connect_pins` ile araya sok.
+- `ActorTools.set_actor_transform`'a yalnız `scale` vermek konumu/rotasyonu sıfırlıyor — her zaman tam transform ver.
 - Impure fonksiyon sonucunu doğrudan `return` içinde kullanma; önce `bind` et (aksi hâlde exec bağlanmıyor, değer varsayılan okunuyor).
 
 ## İlerleme günlüğü
@@ -115,3 +118,6 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 - 2026-11-14: Geçici klavye/mouse test modu eklendi (VR başlığı yoksa otomatik). IMC_Default değişmedi; ayrıntı ve geri alma: `Docs/InputMappings.md`.
 - 2026-11-14: Faz 5 (R11 lazerle çekme) uygulandı; thumbstick teleport kapatıldı; masaüstü modunda çift mouse dönüşü düzeltildi. Derleme + PIE hatasız, oynanarak test edilmedi.
 - 2026-11-16: Eski swap/timer asset'leri silindi; tüm iş commit'lendi.
+- 2026-11-17: Masaüstü testinde bildirilen hatalar: (1) tutulan tahta kinematik ve çarpışmalı olduğu için diğer kutuları savuruyordu → `BP_Wood.OnGrabbed` çarpışmayı `QueryOnly` yapıyor, `Throw` `QueryAndPhysics`'e geri alıyor. (2) Kutular 1 m / 100 kg küptü ve masaüstünde 2 m uzaktan tutulup kamerayla savruluyordu → `BP_Wood` ölçeği 0.5 (50 cm), sahnedeki 6 tahta yere oturacak şekilde yeniden konumlandı. (Masaüstünde tahtayı ele ışınlama denendi, kullanıcı istemedi ve geri alındı: tahta tutulduğu yerde kalıp elle birlikte hareket eder.) (3) R8 kilidi devredeyken bırakma sessizce yok sayılıyordu → `ReleaseGrab` ekrana "R8 kilidi" mesajı basıyor. Derleme + PIE hatasız; tutup fırlatma elle test edilmedi (MCP girdi gönderemiyor).
+- 2026-11-17: Kullanıcı isteği: tutma Physics Handle ile. `BP_XRPawn`'a `PhysicsHandleRight/Left` eklendi; `TryGrab` → `StartPhysicsGrab` (tahta fizikli kalır, eldeki göreli konumu `PhysGrabRel{Right,Left}`'e kaydedilir), Tick'te `UpdatePhysicsGrab` hedefi elin pozisyonuna taşır, `DoThrow`/`FirePendingThrow` atmadan önce handle'ı bırakır, `SetHeldWood(None)` handle'ı bırakır. Aç/kapa: `Tuning.UsePhysicsHandleGrab` (true; false → eski ele bağlama). Yay ayarları bileşenlerde (LinearStiffness 750, LinearDamping 200, AngularStiffness 1500, InterpolationSpeed 50). Lazerle çekme (R11) hâlâ ele bağlıyor. PIE'da geçici otomatik testle doğrulandı: tutulan tahta pawn'ı takip etti, bırakınca fırladı, diğer kutular yerinde kaldı.
+- 2026-11-17: A9 kararı (kullanıcı): R8 kilidinde bırakılan tahta, kilit kalkınca bırakma anındaki hızla otomatik fırlatılıyor. Derleme + PIE hatasız; elle test edilmedi.
