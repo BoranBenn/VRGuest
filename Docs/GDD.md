@@ -82,6 +82,7 @@ Ahşabı kavra (elle veya lazerle çek)
   - Bıçak tutan el ahşap kavrarsa / lazerle çekerse bıçak otomatik **bele döner**.
   - O el tahtayı fırlattığında bıçak otomatik **aynı ele geri gelir**.
 - **R14. Ninja yıldızı (shuriken):** Bölüm başına 2 adet. Menzilli, tek vuruşta öldürür. Işınlanma hedefi değildir.
+- **R14b (kullanıcı kararı, 2026-11-19):** Bıçak ve shuriken düşmanı **yalnızca arkadan** vurulursa öldürür; önden isabet etkisizdir (`BackstabMaxDot`).
 - **R15. Ölüm:** Oyuncu da düşmanlar da tek vuruşta ölür.
 
 ### Düşmanla yer değiştirme
@@ -209,10 +210,10 @@ AirborneThrown / AirborneDropped ──(oyuncu ışınlandı)──▶ Destroyed
 
 ## 11. Açık Kararlar (agent bunlara kendi başına karar vermemeli)
 
-- **A1.** Düşmanla yer değiştirme: menzil ve sınırlama (cooldown mu, ritim barı mı?).
-- **A2.** Tahta düşmana çarparsa ne olur? (Öldürür / sersemletir / etkisiz.)
-- **A3.** Shuriken nerede taşınır, nasıl çekilir, geri alınabilir mi?
-- **A4.** Bıçak fırlatılabilir mi?
+- **A1.** Düşmanla yer değiştirme: menzil ve sınırlama (cooldown mu, ritim barı mı?). → **Karar (2026-11-19): menzil şimdilik makul bir değer (ayarlanabilir); sınırlama mekanizması hâlâ açık.**
+- **A2.** Tahta düşmana çarparsa ne olur? (Öldürür / sersemletir / etkisiz.) → **Karar (2026-11-19): düşman kısa bir süre durur, sonra devam eder.**
+- **A3.** Shuriken nerede taşınır, nasıl çekilir, geri alınabilir mi? → **Karar (2026-11-19): ele alınır, atılınca çarptığı yere yapışır, oradan geri alınır.**
+- **A4.** Bıçak fırlatılabilir mi? → **Karar (2026-11-19): fırlatılamaz.**
 - **A5.** Işınlanma suikastı her yükseklikten mi geçerli, yoksa yalnızca baş hizasının üstündeki objelerden mi?
 - **A6.** Zaman yavaşlaması zamanla zayıflasın mı? (Dik yukarı atılan tahta en uzun yavaşlamayı verir; sınır gerekebilir.)
 - **A7.** Kontrol şeması (en son çözülecek).

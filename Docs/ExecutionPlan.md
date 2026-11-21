@@ -59,13 +59,17 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 ### Faz 6 — Düşman entegrasyonu (R15, R17–R20, T11, T12, T15) — kısmen
 - [x] Işınlanma suikastı (`KillEnemiesAt` → `ApplyDamage`, düşmanlar tek vuruşta ölür).
 - [x] R19: blink sonrası pawn `ReacquireTime` boyunca "Reacquiring" Actor Tag'i taşır; `BP_ShootingEnemy` ateş etmez, `BP_RunningEnemy` vurmaz.
-- [ ] Düşmanların AI Perception (Hearing) ile kırılma sesine yönelmesi + `NOISE_POSITION_ERROR` (noise event zaten yayınlanıyor).
+- [ ] Düşmanların AI Perception (Hearing) ile kırılma sesine yönelmesi + `NOISE_POSITION_ERROR` (noise event zaten yayınlanıyor). **Not:** düşmanların şu an algı modeli yok; her kare oyuncu kamerasının konumunu biliyorlar. Ses algısının anlamlı olması için önce "oyuncuyu kaybetme" durumu tasarlanmalı.
+- [x] A2: havadaki tahta düşmana çarparsa (`BP_Wood` EventHit) `ApplyDamage(DamageCauser = tahta)`; `BP_RunningEnemy.AnyDamage` kaynak `BP_Wood` ise ölmez, `StunDuration` (oyun zamanı, 1 sn) boyunca `bStunned` olur: yürümez/saldırmaz (`TryHitPlayer` dahil), `BP_ShootingEnemy` dönmez/ateş etmez. `bA2_WoodHitKillsEnemy` true → eskisi gibi öldürür.
 - [ ] Mermilerin yavaş zamanda yavaşladığını VR'da doğrula.
 
 ### Faz 7 — Vinç, dalgalar, bıçak, shuriken, swap
 - [ ] `BP_Crane` (spline, palet düşürme, raf tepesi yasak bölgeleri).
 - [ ] `BP_WaveManager` (spawn telegraph, `SPAWN_MIN_DIST_BEHIND`) — dalga yapısı A10'a bağlı.
-- [ ] Bıçak (R13), shuriken (R14 — taşıma A3), düşmanla swap (R16 — A1).
+- [x] Düşmanla yer değiştirme (R16, A1): lazer önceliği havadaki tahta → düşman (`FindSwapTarget`: `SwapRange` 1500, `SwapConeAngle` 10°, ölü değil) → durgun tahta (çekme). Tetik bırakılınca `StartBlink` karartması → `DoArrive` → `DoSwapArrive`: düşman oyuncunun eski yerine (HMD altı, kendi zemin yüksekliğiyle), oyuncu düşmanın zeminine `FindSafeArrival` ile; sıfır momentum, R19 reacquire, iki noktada `BP_SwapPulse`. Sınırlama `OpenDecision.SwapCooldown` (0 = yok). Görüş hattı kontrolü yok (çekmede de yok).
+- [x] Bıçak (R13, A4): `/Game/Weapons/BP_Knife` (BeginPlay'de `SetupWeapons` ile spawn, gizli = belde). Tuşa `KnifeHoldTime` (0.15 sn, gerçek zaman) basılı tutunca o ele gelir (`UpdateKnife`); aynı elde tekrar basılı tutmak bele döndürür. Elde ve görünürken düşmana değerse öldürür (OverlapAllDynamic). Bıçaklı el tahta tutar/lazerle çekerse bıçak bele döner (`SetHeldWood` → `StowKnife`, `KnifeReturn{Right,Left}`); o el tahtayı bırakınca/fırlatınca aynı ele geri gelir. Fırlatılamaz. Belde görsel yok (yalnız gizleniyor).
+- [x] Shuriken (R14, A3): `/Game/Weapons/BP_Shuriken` (fizikli disk, CCD). Bölüm başına `ShurikensPerLevel` = 2 (`ShurikenCount`). Tuşa basınca ele alınır (el boş, bıçak o elde değilse), basılı tutup savurup bırakınca `GetThrowVelocity` ile fırlar; hız < `ShurikenMinThrowSpeed` ise cebe geri döner. Düşmana çarparsa öldürür (sersemletmez), duvar/zemine çarpınca fiziği durur ve yapışır, tahtaya çarparsa seker. Yapışmış shuriken'e grip ile (`TryRetrieveShuriken`, yarıçap max(GrabRadius, 25 cm)) dokununca cebe geri gelir. Lazerle çekilemez, ışınlanma hedefi değildir.
+- Girdiler (A7, geçici): `IA_Knife_{Left,Right}_{Pressed,Released}` → Oculus/PICO B ve Y, Index B; `IA_Shuriken_*` → Oculus/PICO A ve X, Index A. Masaüstü: R = sağ bıçak, F = sağ shuriken. Ayrıntı: `Docs/InputMappings.md`.
 - [ ] Nişancı düşman (R21), kafa duvar içinde karartma (T5).
 
 ### Faz 8 — Ortam ve eğitim
@@ -76,8 +80,10 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 
 | Karar | Placeholder | Varsayılan (geçici, karar değil) |
 |---|---|---|
-| A1 swap menzili/sınırı | `SwapRange`, `SwapCooldown` | Faz 7'de eklenecek |
-| A2 tahta düşmana çarparsa | `BP_Wood.bA2_WoodHitKillsEnemy` | false (etkisiz) |
+| A1 swap menzili/sınırı | **KARAR (2026-11-19, kullanıcı): menzil şimdilik makul bir değere ayarlansın.** `BP_XRPawn.SwapRange`; sınırlama mekanizması (cooldown/ritim) hâlâ açık → `SwapCooldown` placeholder (0 = yok). | 1500 cm |
+| A2 tahta düşmana çarparsa | **KARAR (2026-11-19, kullanıcı): düşman kısa süre durur, sonra devam eder.** Süre `StunDuration` (ayarlanabilir). | 1.0 sn |
+| A3 shuriken taşıma | **KARAR (2026-11-19, kullanıcı): shuriken ele alınır, atılınca çarptığı yere yapışır, oradan geri alınır.** | — |
+| A4 bıçak fırlatma | **KARAR (2026-11-19, kullanıcı): bıçak fırlatılamaz.** | — |
 | A5 suikast yükseklik sınırı | `BP_XRPawn.A5MinHeightAboveHead` (cm, <0 = sınırsız) | -1 (sınırsız) |
 | A6 yavaşlama zayıflaması | `BP_XRPawn.A6SlowmoMaxDuration` (gerçek sn, 0 = sınırsız) | 0 |
 | A8 palet ağırlığı | `BP_Wood.ThrowSpeedMultiplier` | 1.0 |
@@ -96,7 +102,11 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 | `ASSASSINATE_RADIUS` | `BP_XRPawn.AssassinateRadius` | 60 |
 | `THROW_SAMPLE_FRAMES` / `THROW_ASSIST_STRENGTH` | `BP_XRPawn.ThrowSampleFrames / ThrowAssistStrength` | 5 / 0.1 |
 | `NOISE_POSITION_ERROR` | — (Faz 6) | |
-| `KNIFE_HOLD_TIME`, `SPAWN_MIN_DIST_BEHIND`, `SWAP_RANGE`, `SHURIKEN_PER_LEVEL` | — (Faz 7) | |
+| `KNIFE_HOLD_TIME` | `BP_XRPawn.KnifeHoldTime` | 0.15 |
+| `SHURIKEN_PER_LEVEL` | `BP_XRPawn.ShurikensPerLevel` (+ `ShurikenMinThrowSpeed` 150, `ShurikenSpinDeg` 1080) | 2 |
+| `SWAP_RANGE` | `BP_XRPawn.SwapRange` (+ `SwapConeAngle` 10°) | 1500 |
+| `SPAWN_MIN_DIST_BEHIND` | — (Faz 7, dalgalar) | |
+| (A2) sersemletme süresi | `BP_RunningEnemy.StunDuration` | 1.0 |
 
 ## unreal-mcp ile çalışırken bilinen tuzaklar
 - Editörün düğüm veritabanı başka bir sınıfa **sonradan eklenen** fonksiyon/değişkenleri görmüyor (`Class|BPXRPawn|...` eski hâlini döndürüyor). Sınıflar arası yeni iletişim gerekiyorsa Actor Tag, genel motor fonksiyonları veya mevcut üyeler kullan; editör yeniden başlatılınca muhtemelen düzelir.
@@ -109,6 +119,8 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 - `Utilities|IsValid` her zaman makro (exec) sürümünü oluşturur; `(:"Is Valid" ...)` dallarıyla kullan.
 - `BP_XRPawn`/`BP_Wood` grafiklerinde eski DSL yazımlarından kalmış **bağlantısız kopya zincirler** var (ör. EventGraph'ta 3 `UpdateSlowmo`). `find_nodes` hepsini döndürür; düğüm eklerken olaydan/fonksiyon girişinden gerçekten ulaşılan zinciri seç, sonra `read_graph_dsl` ile doğrula.
 - `read_graph_dsl` çıktısı her zaman geri yazılamıyor (`|SetbX`, `Math|Vector|vector*vector` "does not exist"). Var olan fonksiyona ekleme yaparken `create_node` + `break_pins`/`connect_pins` ile araya sok.
+- `read_graph_dsl` bazen sonradan `create_node`/`add_node_pin` ile eklenen girişleri göstermiyor (ör. `Or` düğümüne eklenen 3. pin); doğrulamayı `get_node_infos` ile yap.
+- Başka bir aktörün `Tags` dizisine DSL'den erişilemiyor (`Variables|Actor|GetTags` yalnızca self). Sınıflar arası sinyal için `ApplyDamage` + `DamageCauser` sınıfı gibi motor yolları kullan.
 - `ActorTools.set_actor_transform`'a yalnız `scale` vermek konumu/rotasyonu sıfırlıyor — her zaman tam transform ver.
 - Impure fonksiyon sonucunu doğrudan `return` içinde kullanma; önce `bind` et (aksi hâlde exec bağlanmıyor, değer varsayılan okunuyor).
 
@@ -119,5 +131,10 @@ Kaynak: [GDD.md](GDD.md). Bu plan GDD'nin "Önerilen prototip sırası"nı (Böl
 - 2026-11-14: Faz 5 (R11 lazerle çekme) uygulandı; thumbstick teleport kapatıldı; masaüstü modunda çift mouse dönüşü düzeltildi. Derleme + PIE hatasız, oynanarak test edilmedi.
 - 2026-11-16: Eski swap/timer asset'leri silindi; tüm iş commit'lendi.
 - 2026-11-17: Masaüstü testinde bildirilen hatalar: (1) tutulan tahta kinematik ve çarpışmalı olduğu için diğer kutuları savuruyordu → `BP_Wood.OnGrabbed` çarpışmayı `QueryOnly` yapıyor, `Throw` `QueryAndPhysics`'e geri alıyor. (2) Kutular 1 m / 100 kg küptü ve masaüstünde 2 m uzaktan tutulup kamerayla savruluyordu → `BP_Wood` ölçeği 0.5 (50 cm), sahnedeki 6 tahta yere oturacak şekilde yeniden konumlandı. (Masaüstünde tahtayı ele ışınlama denendi, kullanıcı istemedi ve geri alındı: tahta tutulduğu yerde kalıp elle birlikte hareket eder.) (3) R8 kilidi devredeyken bırakma sessizce yok sayılıyordu → `ReleaseGrab` ekrana "R8 kilidi" mesajı basıyor. Derleme + PIE hatasız; tutup fırlatma elle test edilmedi (MCP girdi gönderemiyor).
-- 2026-11-17: Kullanıcı isteği: tutma Physics Handle ile. `BP_XRPawn`'a `PhysicsHandleRight/Left` eklendi; `TryGrab` → `StartPhysicsGrab` (tahta fizikli kalır, eldeki göreli konumu `PhysGrabRel{Right,Left}`'e kaydedilir), Tick'te `UpdatePhysicsGrab` hedefi elin pozisyonuna taşır, `DoThrow`/`FirePendingThrow` atmadan önce handle'ı bırakır, `SetHeldWood(None)` handle'ı bırakır. Aç/kapa: `Tuning.UsePhysicsHandleGrab` (true; false → eski ele bağlama). Yay ayarları bileşenlerde (LinearStiffness 750, LinearDamping 200, AngularStiffness 1500, InterpolationSpeed 50). Lazerle çekme (R11) hâlâ ele bağlıyor. PIE'da geçici otomatik testle doğrulandı: tutulan tahta pawn'ı takip etti, bırakınca fırladı, diğer kutular yerinde kaldı.
+- 2026-11-17: Kullanıcı isteği: tutma Physics Handle ile. `BP_XRPawn`'a `PhysicsHandleRight/Left` eklendi; `TryGrab` → `StartPhysicsGrab` (tahta fizikli kalır, eldeki göreli konumu `PhysGrabRel{Right,Left}`'e kaydedilir), Tick'te `UpdatePhysicsGrab` hedefi elin pozisyonuna taşır, `DoThrow`/`FirePendingThrow` atmadan önce handle'ı bırakır, `SetHeldWood(None)` handle'ı bırakır. Aç/kapa: `Tuning.UsePhysicsHandleGrab` (true; false → eski ele bağlama). Yay ayarları bileşenlerde (LinearStiffness 750, LinearDamping 200, AngularStiffness 1500, InterpolationSpeed 50). Lazerle çekme (R11) o sırada hâlâ ele bağlıyordu (aşağıya bkz.). PIE'da geçici otomatik testle doğrulandı: tutulan tahta pawn'ı takip etti, bırakınca fırladı, diğer kutular yerinde kaldı.
 - 2026-11-17: A9 kararı (kullanıcı): R8 kilidinde bırakılan tahta, kilit kalkınca bırakma anındaki hızla otomatik fırlatılıyor. Derleme + PIE hatasız; elle test edilmedi.
+- 2026-11-19: Kullanıcı isteği: lazerle çekme de fizik tabanlı. `GrabPressed` çekme dalında `SetHeldWood`'dan sonra `StartPhysicsGrab` çağrılıyor (tahta fizikli kalır, Physics Handle ile tutulur). `UpdatePull` artık tahtayı `SetActorLocation` ile taşımıyor; `PhysGrabRel{Right,Left}`'in konumunu `PullStartRel × (1−α)²` ile `PullDuration` boyunca sıfıra indiriyor → handle hedefi tahtadan ele doğru kayıyor, tahta yay/sönümle fiziksel olarak uçuyor (yoldaki engellere çarpabilir), varınca normal fiziksel tutmaya dönüşüyor. `UsePhysicsHandleGrab` false ise eski kinematik çekme çalışır. Eski bağlantısız `UpdatePull` zinciri silindi. Derleme uyarısız; PIE/VR'da elle test edilmedi.
+- 2026-11-19: Masaüstü testinde: fırlatılan tahta el hareketinden bağımsız hep kamera ileri yönüne gidiyordu (`GetThrowVelocity` masaüstünde sabit `kamera ileri × DesktopThrowSpeed` döndürüyordu). Artık masaüstünde de el geçmişinin yönü kullanılıyor (ayrıntı: `Docs/InputMappings.md`). Yeni `Desktop.DesktopMinFlickSpeed` = 150. Derleme uyarısız; elle test edilmedi.
+- 2026-11-19: A1–A4 kararları (kullanıcı) kaydedildi. A2 sersemletme ve R16 düşmanla yer değiştirme uygulandı. `BP_ShootingEnemy`'nin `BP_RunningEnemy`'den türediği görüldü (ortak mantık üst sınıfta). Derleme uyarısız, PIE açılışında hata yok; sersemletme ve yer değiştirme elle test edilmedi.
+- 2026-11-19: Bıçak (R13) ve shuriken (R14) uygulandı; geçici tuşlar kullanıcı onaylı (masaüstünde Q/E dolu olduğu için R/F). PIE'da geçici otomatik testle doğrulandı: shuriken ele geliyor (ölçek doğru, sayaç 2→1), bırakınca 1500 cm/s ile fizikli fırlıyor; bıçak 0.15 sn basılı tutunca sağ ele geliyor. Test düğümleri silindi. Düşmana saplanma, yapışma, geri alma ve bıçakla öldürme elle test edilmedi.
+- 2026-11-19: Kullanıcı isteği: (1) shuriken daha hızlı: uçuş hızı = max(el hızı × `ShurikenSpeedMultiplier` (2), `ShurikenMinFlightSpeed` (3000 cm/s)). (2) Bıçak ve shuriken düşmanı **yalnızca arkadan** vurulunca öldürür: `BP_RunningEnemy.AnyDamage`, hasar kaynağı `BP_Knife`/`BP_Shuriken` ise kaynağın yatay yönü ile düşmanın ileri yönünün dot'u < `BackstabMaxDot` (-0.2, ~arka 156° yay) olmalı; önden vuruş etkisiz. Işınlanma suikastı ve `bA2_WoodHitKillsEnemy` bundan etkilenmez; tahta isabeti hâlâ sersemletir. Derleme uyarısız, PIE hatasız; elle test edilmedi.
