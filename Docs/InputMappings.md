@@ -31,17 +31,17 @@ Not: Oculus B/Y şablonun `IA_Menu_Toggle_*` eylemine de bağlı; pawn'da o olay
 
 Otomatik: VR başlığı aktif değilse (`IsHeadMountedDisplayEnabled == false`) `BP_XRPawn.DesktopMode = true` olur.
 
-- `/Game/Input/IMC_DesktopDebug` (yeni): LMB → Grab_Right, RMB → Laser_Right, Q → Grab_Left, E → Laser_Left, R → Knife_Right (basılı tut), F → Shuriken_Right (basılı tut, mouse'u savurup bırak). Yalnız masaüstü modunda, `DesktopSetup` içinde priority 1 ile eklenir.
+- `/Game/Input/IMC_DesktopDebug` (yeni): LMB → Grab_Right, RMB → Laser_Right, Q → Grab_Left, E → Laser_Left, R → Knife_Right (basılı tut), F → Shuriken_Right (basılı tut, mouse'u savurup bırak). **V → bıçak darbesi** (2026-11-23; `DesktopTick` içinde `WasInputKeyJustPressed` ile yoklanır, IMC'de değil): bıçak sağ elde değilse ve el boşsa önce `EquipKnife`, sonra `DesktopStab` → `UpdateDesktopStab` sağ eli `DesktopStabOutTime` (0.07 sn) içinde `DesktopStabReach` (50 cm) ileri itip `DesktopStabBackTime` (0.15 sn) içinde geri çeker. Arkadan kuralı (R14b) geçerli. Yalnız masaüstü modunda, `DesktopSetup` içinde priority 1 ile eklenir.
 - `BP_XRPawn` → kategori **Desktop**: `DesktopMode`, `DesktopEyeHeight` 165, `DesktopGrabRadius` 200, `DesktopThrowSpeed` 1500, `DesktopMoveSpeed` 300, `DesktopMinFlickSpeed` 150, `DesktopHandOffsetRight` (45,22,-22), `DesktopHandOffsetLeft` (45,-22,-22).
 - `BP_XRPawn.DesktopSetup` (BeginPlay'den çağrılır): IMC ekler, kamerayı göz yüksekliğine alır, 4 motion controller'ı kameraya bağlar, `GrabRadiusfromGripPosition`'ı DesktopGrabRadius yapar.
-- `BP_XRPawn.DesktopTick` (Tick'te, yalnız DesktopMode): WASD → yatay kayma (çarpışmasız, yalnız test). Mouse bakışı ayrıca eklenmedi; mevcut `IA_Rotate` kullanılıyor.
+- `BP_XRPawn.DesktopTick` (Tick'te, yalnız DesktopMode): WASD → yatay kayma. Duvarlarla çarpışma yok; 2026-11-23'ten beri düşmanların (`BP_RunningEnemy` ve alt sınıfları) içinden geçilmez: kamera, düşman merkezine yatayda `DesktopEnemyBlockRadius` (60 cm) yakın olamaz, kenarından kayar (`DesktopMoveTarget`). Mouse bakışı ayrıca eklenmedi; mevcut `IA_Rotate` kullanılıyor.
 - `BP_XRPawn.GetThrowVelocity`: DesktopMode'da da el geçmişi kullanılır (eller kameraya bağlı, mouse savurması/WASD el hızını oluşturur): el hızı ≥ `DesktopMinFlickSpeed` ise yön = el hareketi, hız = max(el hızı, `DesktopThrowSpeed`); daha yavaşsa kamera ileri × `DesktopThrowSpeed`. VR'da eskisi gibi el geçmişi. (Geri alırken bu dal kaldırılmalı.)
 
 ## 3. VR haline geri dönmek için
 
 1. `BP_XRPawn` EventBeginPlay'den `DesktopSetup` çağrısını, EventTick'ten `DesktopMode → DesktopTick` dalını kaldır.
 2. `GetThrowVelocity` içindeki `DesktopMode` dalını kaldır (yalnız el geçmişi kalsın).
-3. `DesktopSetup`, `DesktopTick` fonksiyonlarını ve **Desktop** kategorisindeki değişkenleri sil.
+3. `DesktopSetup`, `DesktopTick`, `DesktopStab`, `UpdateDesktopStab` fonksiyonlarını ve **Desktop** kategorisindeki değişkenleri sil.
 4. `/Game/Input/IMC_DesktopDebug` asset'ini sil.
 5. `IMC_Default` değişmediği için ona dokunma; şüphe olursa `/Game/Backup/IMC_Default_VR_Original` ile karşılaştır.
 
